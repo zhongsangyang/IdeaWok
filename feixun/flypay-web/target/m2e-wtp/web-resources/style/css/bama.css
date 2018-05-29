@@ -1,0 +1,277 @@
+* {
+    padding: 0;
+    margin: 0;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+}
+
+@font-face {
+    font-family: gaya;
+    src: url('Gayatri.ttf');
+}
+
+@font-face {
+    font-family: fzzd;
+    src: url('FZZDHJW.TTF');
+}
+
+@font-face {
+    font-family: fzzx;
+    src: url('FZZXHJW.otf');
+}
+
+.topDiv {
+    background-color: #fff;
+    width: 100%;
+    height: 158.693vw;
+    border-bottom: 1px solid #000;
+}
+
+.bottomDiv {
+    position: absolute;
+    top: 158.93vw;
+    font-family: fzzx;
+    padding-left: 7.788595vw;
+    padding-top: 3.477051vw;
+    font-size: 3.337969vw;
+    background-color: #f1f1f1;
+    width: 92.211405vw;
+}
+
+button {
+    border: none;
+    border-radius: 1vw;
+}
+
+#code {
+    font-size: 3.216vw;
+    background-color: #fff;
+    color: #000;
+    width: 21.140473vw;
+    height: 6.259vw;
+    border: 0.5px solid #000;
+    letter-spacing: 1.2vw;
+}
+
+#sendMessage {
+    font-size: 3.216vw;
+    background-color: #ec4f4d;
+    color: #fff;
+    width: 21.140473vw;
+    height: 6.259vw;
+}
+
+.logoDiv {
+    display: flex;
+    flex-direction: row;
+    position: absolute;
+    top: 0;
+    width: 91.93vw;
+    height: 9.04vw;
+    padding-left: 8.07vw;
+    padding-top: 2.086vw;
+}
+
+.bamaBg {
+    background: url(../img/bg.png);
+    background-size: 100%;
+    top: 9.04vw;
+    width: 100%;
+    height: 51.182197vw;
+    position: absolute;
+}
+
+.logo {
+    background: url(../img/logo.png);
+    width: 6vw;
+    height: 6vw;
+    background-size: 100%;
+}
+
+#registForm {
+    position: absolute;
+    top: 61.057vw;
+    width: 85.2573vw;
+    height: 59.81vw;
+    left: 7.37135vw;
+}
+
+.recommend {
+    position: absolute;
+    top: 125.591vw;
+    width: 100%;
+    font-size: 3.338vw;
+    text-align: center;
+}
+
+#registBtn {
+    position: absolute;
+    top: 132.96vw;
+    letter-spacing: 5vw;
+}
+
+#downloadBtn {
+    position: absolute;
+    top: 146.036vw;
+    letter-spacing: 0.5vw;
+}
+
+.btn {
+    background-color: #e65725;
+    color: #fff;
+    font-size: 5.007vw;
+    font-family: fzzx;
+    width: 85.535vw;
+    height: 8.623vw;
+    margin: 0 auto;
+    text-align: center;
+    left: 7.2325vw;
+}
+
+.logoText1 {
+    font-family: gaya;
+    font-size: 3.273992vw;
+    color: #432f7e;
+    padding-left: 1vw;
+}
+
+.logoText2 {
+    font-family: gaya;
+    color: #161616;
+    font-size: 2.147427vw;
+    padding-left: 1vw;
+}
+
+.logoText3 {
+    font-family: fzzd;
+    color: #161616;
+    font-size: 6vw;
+    padding-left: 1vw;
+}
+
+.inputDiv {
+    height: 10vw;
+    width: 100%;
+    border-top: 1px solid #e4e4e4;
+    border-left: 1px solid #e4e4e4;
+    border-right: 1px solid #e4e4e4;
+    font-size: 3.616134vw;
+    padding-left: 1vw;
+    line-height: 10vw;
+}
+
+#reference {
+    padding-left: 12.239vw;
+    font-size: 3.81vw;
+    font-family: SimHei;
+}
+
+input {
+    margin-left: 2vw;
+}
+
+#introduce {
+    width: 82.7274vw;
+    height: 14.047288vw;
+    text-align: justify;
+    line-height: 5vw;
+}
+
+.charm {
+    padding-left: 56.467316vw;
+    color: #e65725;
+}
+
+.attraction {
+    padding-top: 3.867872vw;
+}
+
+.QRcodeDiv {
+    width: 80.257302vw;
+    height: 41.175243vw;
+    background-color: #fff;
+    color: #e65725;
+    border: 1px solid #ebebeb;
+    padding-left: 5.006954vw;
+    padding-top: 5.006954vw;
+}
+
+.footer {
+    background: url(../img/footer.png);
+    width: 100%;
+    height: 27.121vw;
+    background-size: 100%;
+    margin-left: -7.788595vw;
+}
+
+.codeImg {
+    background: url(../img/QRcode.png);
+    width: 28.511822vw;
+    height: 28.511822vw;
+    background-size: 100%;
+}
+
+li {
+    list-style: none;
+}
+
+.dot {
+    display: inline-block;
+    width: 2.364395vw;
+    height: 2.364395vw;
+    background: #e65725;
+    vertical-align: middle;
+    overflow: hidden;
+    border-radius: 50%;
+}
+
+.QRcodeText {
+    font-family: fzzx;
+    width: 41.724618vw;
+    height: 28.511822vw;
+    margin-left: 2.503477vw;
+}
+
+.QRcodeText div {
+    padding-left: 4.867872vw;
+}
+
+.QRcodeText div span {
+    padding-left: 2vw;
+}
+
+.QRcodeText img {
+    vertical-align: middle;
+    width: 4.450626vw;
+    height: 4.450626vw;
+}
+
+#registForm input {
+    max-width: 30.876217vw;
+    border: none;
+    font-size: 3.616134vw;
+}
+
+#code, #sendMessage {
+    position: relative;
+    right: -8vw;
+}
+
+.inputText {
+    width: 20.584145vw;
+    display: inline-block;
+}
+
+.logoDiv {
+    background: url(../img/bamaLogo.png);
+    background-size: 100% 100%;
+    margin-top: -6px;
+}
+
+
+
+
+

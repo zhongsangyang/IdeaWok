@@ -1,0 +1,329 @@
+package com.cn.flypay.service.trans.impl;
+
+import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.cn.flypay.dao.BaseDao;
+import com.cn.flypay.model.sys.TbrokerageConfig;
+import com.cn.flypay.model.sys.TinfoList;
+import com.cn.flypay.model.sys.Torganization;
+import com.cn.flypay.model.sys.Tuser;
+import com.cn.flypay.model.trans.Tbrokerage;
+import com.cn.flypay.model.trans.TbrokerageDetail;
+import com.cn.flypay.model.trans.TorderBonusProcess;
+import com.cn.flypay.model.trans.TorgBrokerage;
+import com.cn.flypay.model.trans.TuserOrder;
+import com.cn.flypay.pageModel.sys.InfoList;
+import com.cn.flypay.pageModel.trans.UserOrder;
+import com.cn.flypay.service.common.ProducerService;
+import com.cn.flypay.service.sys.BrokerageConfigService;
+import com.cn.flypay.service.sys.OrganizationService;
+import com.cn.flypay.service.sys.SysParamService;
+import com.cn.flypay.service.sys.UserService;
+import com.cn.flypay.service.trans.UserOrderService;
+import com.cn.flypay.utils.SysConvert;
+import com.cn.flypay.utils.jpush.api.JiguangUtil;
+
+@Service(value = "baobeiShareBonusService")
+public class BaobeiShareBonusServiceImpl extends AbstractShareBonusService {
+
+	private Log log = LogFactory.getLog(getClass());
+	@Autowired
+	private BaseDao<Tuser> userDao;
+
+	@Autowired
+	private OrganizationService organizationService;
+
+	@Autowired
+	private BrokerageConfigService brokerageConfigService;
+	@Autowired
+	private SysParamService sysParamService;
+	@Autowired
+	private BaseDao<Torganization> orgDao;
+
+	@Autowired
+	private BaseDao<TorgBrokerage> orgBkDao;
+
+	@Autowired
+	private BaseDao<Tbrokerage> bkDao;
+
+	@Autowired
+	private BaseDao<TbrokerageDetail> bkdDao;
+
+	@Autowired
+	private BaseDao<TorderBonusProcess> bonusProcessDao;
+
+	@Autowired
+	private ProducerService producerService;
+	@Autowired
+	private UserOrderService userOrderService;
+	@Autowired
+	private UserService userService;
+
+	@Override
+	public Boolean dealBonusWhenOrder(String orderNum) {
+		Map<String, Object> params = new HashMap<String, Object>();
+		params.put("orderNum", orderNum);
+		String hql = " select t from TorderBonusProcess t left join t.order d  left join d.user u left join u.organization g where t.status=0 and t.orderNum=:orderNum";
+		TorderBonusProcess bonusProcess = bonusProcessDao.get(hql, params);
+		if (bonusProcess != null) {
+			UserOrder userOrder = userOrderService.getOrderByOrderNum(orderNum);
+			if (userOrder.getUserId() != null) {
+				Tuser user = userService.getTuser(userOrder.getUserId());
+				log.info("total bonus amt " + bonusProcess.getTotalAmt());
+				/* 总机构拿出的分润比例 */
+				BigDecimal totalBonus = bonusProcess.getTotalAmt().multiply(
+						BigDecimal.ONE.subtract(user.getOrganization().getPrincipalRate()));
+				if (userOrder.getTransPayType() - UserOrder.trans_pay_type.AGENT_PAY_TYPE.getCode() == 0) {
+					totalBonus = bonusProcess.getTotalAmt().multiply(
+							BigDecimal.ONE.subtract(user.getOrganization().getPrincipalAgentRate()));
+				}
+				if (totalBonus.doubleValue() > 0.01) {
+					log.info("organization total bonus amt " + totalBonus.doubleValue());
+					// 推荐人利润
+					updateABUser(user, totalBonus, bonusProcess, userOrder.getTransPayType());
+					// 运营商利润 TODO
+				} else {
+					log.info("organization total bonus amt " + totalBonus + ", less than 0.01");
+				}
+				bonusProcess.setStatus(100);
+				bonusProcessDao.update(bonusProcess);
+			}
+		} else {
+			log.info("none waiting share bonus ,orderNum = " + orderNum);
+		}
+		return null;
+	}
+
+	/**
+	 * 更新所有获得利润的机构利润表
+	 * 
+	 * @param rateMap
+	 * @param org
+	 * @param orgB
+	 */
+	public void updateAllOrganization(Map<Long, Double> rateMap, Torganization org, Double orgB) {
+
+		Long orgId = org.getId();
+		if (rateMap.containsKey(orgId)) {
+			double bf = SysConvert.convertDoubleDigit(orgB * rateMap.get(orgId));
+			if (bf >= 0.01) {
+				TorgBrokerage tob = orgBkDao
+						.get("select t from TorgBrokerage t left join t.organization tor where t.status=0 and  tor.id="
+								+ org.getId());
+				if (tob != null) {
+					log.info("org name=" + org.getName() + " get " + bf + " yuan");
+					tob.setTotalTransBrokerage(tob.getTotalTransBrokerage().add(BigDecimal.valueOf(bf)));
+					tob.setTotalBrokerage(tob.getTotalBrokerage().add(BigDecimal.valueOf(bf)));
+					orgBkDao.update(tob);
+				}
+
+			}
+		}
+		if (org.getOrganization() != null) {
+			updateAllOrganization(rateMap, org.getOrganization(), orgB);
+		}
+	}
+
+	public static void main(String[] args) {
+		Double shareBK = 0.8;
+		Double b = SysConvert.convertDoubleDigit(shareBK * 30 / 100);
+		System.out.println(b);
+	}
+
+	/**
+	 * 更新用户的AB推荐人的佣金，同时添加AB的佣金明细。 若A被冻结，B可以继续获取佣金
+	 * 
+	 * @param user
+	 *            支付流水用户
+	 * @param amt
+	 *            支付金额
+	 * @param shareBK
+	 *            机构分配的总利润
+	 * @param appId
+	 *            手机APP交易流水ID
+	 * @param type
+	 *            交易类型
+	 * @param transDate
+	 *            交易时间
+	 */
+	public void updateABUser(Tuser user, BigDecimal shareBKbd, TorderBonusProcess bonusProcess, Integer cftType) {
+		/* 交易金额 机构分润表 */
+		Map<Long, Set<TbrokerageConfig>> bcMap = null;
+		if (cftType - UserOrder.trans_pay_type.AGENT_PAY_TYPE.getCode() == 0) {
+			bcMap = brokerageConfigService.getAgentBrokerageConfig();
+		} else {
+			bcMap = brokerageConfigService.getTransBrokerageConfig();
+		}
+		if (user.getParentUser() != null) {
+			Double shareBK = shareBKbd.doubleValue();
+			Long pid = user.getParentUser().getId();
+			log.info(" user parent is ID=" + pid);
+			Tbrokerage bk = bkDao.get("select t from Tbrokerage t  left join t.user u where u.id = " + pid
+					+ " and t.status=0");
+			int level = 1;
+			int firstRate = getABuserRate(bcMap, user.getOrganization().getId(), user.getParentUser().getUserType(),
+					level, cftType);
+			// 获取机构分配的金额=机构的分润 * 分润比例
+			Double b = SysConvert.convertDoubleDigit(shareBK * firstRate / 100);
+			if (b >= 0.01) {
+				log.info(" user parent is ID=" + pid + ",he/she get " + b + "yuan");
+				updateParentBrokerageAccount(user, user.getParentUser(), bonusProcess, bk, level, firstRate, b, cftType);
+			} else {
+				log.info(" user parent is ID=" + pid + ",he/she get " + b + " yuan,  but b < 0.01 ,it ignores! ");
+			}
+
+			Tuser ppuser = user.getParentUser().getParentUser();
+			if (ppuser != null) {
+				Long ppid = ppuser.getId();
+				Tbrokerage pbk = bkDao.get("from Tbrokerage t where t.user = " + ppid + " and t.status=0");
+				level = 2;
+				int secondRate = getABuserRate(bcMap, user.getOrganization().getId(), ppuser.getUserType(), level,
+						cftType);
+				if (pbk != null) {
+					Double pb = SysConvert.convertDoubleDigit(shareBK * secondRate / 100);
+					if (pb >= 0.01) {
+						log.info(" user parent-->parent is ID=" + ppid + ",he/she get " + pb + "yuan");
+						updateParentBrokerageAccount(user, ppuser, bonusProcess, pbk, level, secondRate, pb, cftType);
+					} else {
+						log.info(" user parent-->parent is ID=" + ppid + ",he/she get " + pb
+								+ " yuan,  but b < 0.01 ,it ignores! ");
+					}
+				} else {
+					log.info("user parent-->parent is freeze, user parent is ID=" + pid
+							+ ", he/she can not get brokeage");
+				}
+				Tuser pppuser = user.getParentUser().getParentUser().getParentUser();
+				if (pppuser != null) {
+					Long pppid = pppuser.getId();
+					Tbrokerage ppbk = bkDao.get("from Tbrokerage t where t.user = " + pppid + " and t.status=0");
+					level = 3;
+					int thirdRate = getABuserRate(bcMap, user.getOrganization().getId(), pppuser.getUserType(), level,
+							cftType);
+					if (pbk != null) {
+						Double ppb = SysConvert.convertDoubleDigit(shareBK * thirdRate / 100);
+						if (ppb >= 0.01) {
+							log.info(" user parent-->parent-->parent is ID=" + pppid + ",he/she get " + ppb + "yuan");
+							updateParentBrokerageAccount(user, pppuser, bonusProcess, ppbk, level, thirdRate, ppb,
+									cftType);
+						} else {
+							log.info(" user parent-->parent is ID=" + pppid + ",he/she get " + ppb
+									+ " yuan,  but b < 0.01 ,it ignores! ");
+						}
+					} else {
+						log.info("user parent-->parent-->parent is freeze, user parent is ID=" + pppid
+								+ ", he/she can not get brokeage");
+					}
+				}
+			}
+
+		}
+	}
+
+	private void updateParentBrokerageAccount(Tuser user, Tuser puser, TorderBonusProcess bonusProcess, Tbrokerage bk,
+			int level, int levelRate, Double b, Integer cftType) {
+		try {
+
+			TuserOrder order = bonusProcess.getOrder();
+			updateUserBrokerage(bk, b, cftType);// 更新客户的分润账户
+			String desc = level + "级交易金额提成" + levelRate + "%";
+			if (order.getTransPayType() - UserOrder.trans_pay_type.AGENT_PAY_TYPE.getCode() == 0) {
+				desc = level + "级" + convert(puser.getUserType()) + "提成" + levelRate + "%";
+			}
+			TbrokerageDetail bd = new TbrokerageDetail(order.getType(), order.getOrgAmt(), order.getCreateTime(),
+					BigDecimal.valueOf(b), level, desc);
+			bd.setBrokerageUserRate(Double.valueOf(levelRate) / 100);
+			bd.setPhone(user.getPhone());
+			bd.setUserCode(user.getCode());
+			bd.setBrokerage(BigDecimal.valueOf(b));
+			bd.setTbrokerage(bk);
+			bd.setBrokerageUser(puser);
+			bd.setBonusProcess(bonusProcess);
+			bkdDao.save(bd);
+			try {
+				String title = "您收获了佣金" + b + "元";
+				desc = String.format(JiguangUtil.ALTER_USER_BROKERAGER, user.getLoginName(), b, user.getOrganization()
+						.getName());
+				TinfoList t = new TinfoList(puser, title, InfoList.info_Type.person.getCode(), desc, 0, 0);
+				producerService.sendInfoList(t);
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw e;
+		}
+	}
+
+	private String convert(int usertype) {
+		String type = "普通会员";
+		switch (usertype) {
+		case 21:
+			type = "钻石代理";
+			break;
+		case 22:
+			type = "黄金代理";
+			break;
+		case 23:
+			type = "银牌代理";
+			break;
+
+		default:
+			break;
+		}
+		return type;
+	}
+
+	/**
+	 * 更新用户分润表
+	 * 
+	 * @param bk
+	 * @param b
+	 */
+	private void updateUserBrokerage(Tbrokerage bk, Double b, Integer cftType) {
+		if (UserOrder.trans_pay_type.AGENT_PAY_TYPE.getCode() == cftType) {
+			bk.setTotalAgentBrokerage(bk.getTotalAgentBrokerage().add(BigDecimal.valueOf(b)));
+		} else if (UserOrder.trans_pay_type.PUBLIC_PAY_TYPE.getCode() == cftType) {
+			bk.setTotalTransBrokerage(bk.getTotalTransBrokerage().add(BigDecimal.valueOf(b)));
+		} else {
+			return;
+		}
+		bk.setTotalBrokerage(bk.getTotalBrokerage().add(BigDecimal.valueOf(b)));
+		bk.setBrokerage(bk.getBrokerage().add(BigDecimal.valueOf(b)));
+		bkDao.update(bk);
+	}
+
+	private int getABuserRate(Map<Long, Set<TbrokerageConfig>> bcMap, Long orgId, int userType, int level,
+			Integer cfgType) {
+		Set<TbrokerageConfig> tcSet = bcMap.get(orgId);
+		int returnRate = 0;
+		for (TbrokerageConfig tc : tcSet) {
+			if (Integer.parseInt(tc.getId().getCfgType()) - cfgType == 0
+					&& Integer.parseInt(tc.getId().getAgentType()) - userType == 0) {
+				switch (level) {
+				case 1:
+					returnRate = tc.getFirstRate();
+					break;
+				case 2:
+					returnRate = tc.getSecRate();
+					break;
+				case 3:
+					returnRate = tc.getThirdRate();
+					break;
+				default:
+					break;
+				}
+				break;
+			}
+		}
+		log.info("return rate =" + returnRate + " level=" + level);
+		return returnRate;
+	}
+}

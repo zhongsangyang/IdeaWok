@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:aop="http://www.springframework.org/schema/aop" xmlns:c="http://www.springframework.org/schema/c" xmlns:cache="http://www.springframework.org/schema/cache"
+	xmlns:context="http://www.springframework.org/schema/context" xmlns:jdbc="http://www.springframework.org/schema/jdbc" xmlns:jee="http://www.springframework.org/schema/jee" xmlns:lang="http://www.springframework.org/schema/lang" xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xmlns:p="http://www.springframework.org/schema/p" xmlns:task="http://www.springframework.org/schema/task" xmlns:tx="http://www.springframework.org/schema/tx" xmlns:util="http://www.springframework.org/schema/util"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd
+		http://www.springframework.org/schema/cache http://www.springframework.org/schema/cache/spring-cache.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+		http://www.springframework.org/schema/jdbc http://www.springframework.org/schema/jdbc/spring-jdbc.xsd
+		http://www.springframework.org/schema/jee http://www.springframework.org/schema/jee/spring-jee.xsd
+		http://www.springframework.org/schema/lang http://www.springframework.org/schema/lang/spring-lang.xsd
+		http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc.xsd
+		http://www.springframework.org/schema/task http://www.springframework.org/schema/task/spring-task.xsd
+		http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd
+		http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
+
+	<!-- 自动扫描controller包下的所有类，使其认为spring mvc的控制器 -->
+	<context:component-scan base-package="com.cn.flypay.controller, com.cn.flypay.mobile" />
+	
+	<mvc:annotation-driven>
+		<mvc:message-converters>
+			<ref bean="fastJsonHttpMessageConverter" />
+			<ref bean="stringHttpMessageConverter" />
+			<ref bean="marshallingHttpMessageConverter" />
+		</mvc:message-converters>
+	</mvc:annotation-driven>
+	
+	<bean class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+		<property name="locations">
+			<list>
+				<value>classpath:config.properties</value>
+			</list>
+		</property>
+	</bean>
+	<bean id="stringHttpMessageConverter" class="org.springframework.http.converter.StringHttpMessageConverter">
+		<constructor-arg value="UTF-8" index="0"></constructor-arg>
+		<!-- 避免出现乱码 -->
+		<property name="supportedMediaTypes">
+			<list>
+				<value>text/plain;charset=UTF-8</value>
+			</list>
+		</property>
+	</bean>
+	
+	<bean id="fastJsonHttpMessageConverter" class="com.alibaba.fastjson.support.spring.FastJsonHttpMessageConverter">
+		<property name="supportedMediaTypes">
+			<list>
+				<value>application/json;charset=UTF-8</value>
+				<!-- 避免IE出现下载JSON文件的情况 -->
+				<value>text/html;charset=UTF-8</value>
+			</list>
+		</property>
+		<property name="features">
+			<util:list>
+				<value>WriteMapNullValue</value>
+				<value>QuoteFieldNames</value>
+				<value>WriteDateUseDateFormat</value>
+			</util:list>
+		</property>
+	</bean>
+	
+	<!-- <bean class="org.springframework.web.servlet.mvc.annotation.AnnotationMethodHandlerAdapter">  
+        配置一下对json数据的转换  
+        <property name="messageConverters">  
+            <list>  
+                <bean class="org.springframework.http.converter.json.MappingJacksonHttpMessageConverter"></bean>  
+                <ref bean="stringHttpMessageConverter" />
+				<ref bean="fastJsonHttpMessageConverter" />
+				<ref bean="marshallingHttpMessageConverter" />
+            </list>  
+        </property>  
+    </bean>   -->
+
+	<bean id="marshallingHttpMessageConverter" class="org.springframework.http.converter.xml.MarshallingHttpMessageConverter">
+		<property name="marshaller" ref="castorMarshaller" />
+		<property name="unmarshaller" ref="castorMarshaller" />
+		<property name="supportedMediaTypes">
+			<list>
+				<value>text/xml;charset=UTF-8</value>
+				<value>application/xml;charset=UTF-8</value>
+			</list>
+		</property>
+	</bean>
+
+	<!-- 返回类型定义 -->
+	<util:list id="messageConverters">
+		<ref bean="fastJsonHttpMessageConverter" />
+		<ref bean="stringHttpMessageConverter" />
+		<ref bean="marshallingHttpMessageConverter" />
+	</util:list>
+
+	<bean id="castorMarshaller" class="org.springframework.oxm.castor.CastorMarshaller" />
+
+	<!-- 对模型视图名称的解析，即在模型视图名称添加前后缀 -->
+	<bean class="org.springframework.web.servlet.view.InternalResourceViewResolver" p:prefix="/WEB-INF/views/" p:suffix=".jsp" />
+
+
+	<bean id="multipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver">
+		<property name="defaultEncoding">
+			<value>UTF-8</value>
+		</property>
+		<property name="maxUploadSize">
+			<value>32505856</value>
+		</property>
+		<property name="maxInMemorySize">
+			<value>4096</value>
+		</property>
+	</bean>
+
+	<!-- 拦截器 -->
+	<mvc:interceptors>
+		<mvc:interceptor>
+			<mvc:mapping path="/**" />
+			<bean class="com.cn.flypay.framework.interceptors.SecurityInterceptor">
+				<!-- 不需要权限验证的地址 -->
+				<property name="excludeUrls">
+					<list>
+						<value>/resource/tree</value><!-- 首页左侧功能菜单 -->
+						<value>/mobile/index.html</value><!-- 首页左侧功能菜单 -->
+						<value>/payment/createWxQrPay</value>
+						<value>/payment/wxqrnotify</value>
+						<value>/payment/ylNotify</value>
+						<value>/payment/yl_v2_Notify</value>
+						<value>/payment/yl_v3_Notify</value>
+						<value>/payment/yl_v5_Notify</value>
+						<value>/payment/yf_ylzx_Notify</value>
+						<value>/payment/xk_ylzx_Notify</value>
+						<value>/payment/yfXe_ylzx_Notify</value>
+						<value>/payment/preQR</value>
+						<value>/payment/pinganFeedback</value>
+						<value>/payment/throughtrain</value>
+						<value>/payment/alipayNotify</value>
+						<value>/payment/minshengNotify</value>
+						<value>/payment/minshengTixianNotify</value>
+						<value>/payment/pinganPayNotify</value>
+						<value>/payment/xinkeNotify</value>
+						<value>/payment/zheYangPayNotify</value>
+						<value>/payment/yiQiangPayNotify</value>
+						<value>/payment/GaZhiOpenCardNotifyUrl</value>
+						<value>/payment/gazhi_ylzx_notify</value>
+						<value>/payment/zheYangPayNotify</value>
+						<value>/payment/ShenFuPayNotify</value>
+						<value>/payment/ShenFuDaiFuNotify</value>
+						<value>/payment/TransfarDaiFuNotify</value>
+						<value>/payment/ShenFuAddCreditCardNotify</value>
+						<value>/mobile/weilianbaoOpenCardPayNotify</value>
+						<value>/mobile/weilianbaoOpenCardPayNotify2</value>
+						<value>/payment/weilianbaoDfNotify</value>
+						<value>/payment/weilianbaoConsumeNotify</value>
+						<value>/payment/weilianbaoConsumeNotify2</value>
+						<value>/payment/yiQiangPointPayNotify</value>
+						<value>/payment/successedpay</value>
+						<value>/code/getCode</value>
+						<value>/news/add</value>
+						<value>/news/getImg</value>
+						<value>/news/getImgTW</value>
+						<value>/news/getImgTHERE</value>
+						<value>/news/details</value>
+						<value>/news/detailsText</value>
+						<value>/user/edit</value>
+						<!--嘎吱通道异步返回 -->
+						<value>/gazhiChannel/asynchronousNotification</value>
+						<!-- 查询指定日期的平安对账单数据 -->
+						<value>/orderStatement/dealPinganPayStatementByTime</value>
+						<value>/payment/yibao_ylzx_Notify</value>
+						<!-- 嘎吱银联开通绑卡异步通知回调 -->
+						<value>/payment/gaZhiYinLianOpenCardNotifyUrl</value>
+					</list>
+				</property>
+			</bean>
+		</mvc:interceptor>
+	</mvc:interceptors>
+</beans>

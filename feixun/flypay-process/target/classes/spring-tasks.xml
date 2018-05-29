@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:aop="http://www.springframework.org/schema/aop" xmlns:c="http://www.springframework.org/schema/c" xmlns:cache="http://www.springframework.org/schema/cache"
+	xmlns:context="http://www.springframework.org/schema/context" xmlns:jdbc="http://www.springframework.org/schema/jdbc" xmlns:jee="http://www.springframework.org/schema/jee" xmlns:lang="http://www.springframework.org/schema/lang" xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xmlns:p="http://www.springframework.org/schema/p" xmlns:task="http://www.springframework.org/schema/task" xmlns:tx="http://www.springframework.org/schema/tx" xmlns:util="http://www.springframework.org/schema/util"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd
+		http://www.springframework.org/schema/cache http://www.springframework.org/schema/cache/spring-cache.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+		http://www.springframework.org/schema/jdbc http://www.springframework.org/schema/jdbc/spring-jdbc.xsd
+		http://www.springframework.org/schema/jee http://www.springframework.org/schema/jee/spring-jee.xsd
+		http://www.springframework.org/schema/lang http://www.springframework.org/schema/lang/spring-lang.xsd
+		http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc.xsd
+		http://www.springframework.org/schema/task http://www.springframework.org/schema/task/spring-task.xsd
+		http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd
+		http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
+
+	<!-- 请参考Cron表达式 . -->
+	<task:scheduled-tasks>
+		<task:scheduled ref="userTaskServiceImpl" method="dealUpdateUserAuthErrorNum" cron="0 0 1 * * ?" />
+		<!-- 清理通道中累计的账户金额 一日一次 -->
+		<task:scheduled ref="userTaskServiceImpl" method="dealCleanChannelTodayAmt" cron="0 10 0 * * ?" />
+		<!-- 清理账户中一个月内的收入和支出金额 一月一次 -->
+		<task:scheduled ref="userTaskServiceImpl" method="dealCleanPerMonthAccount" cron="0 0 1 1 * ?" />
+		<!-- 更新用户的分润信息表 -->
+		<task:scheduled ref="userTaskServiceImpl" method="updateBrokerageAccount" cron="0 30 23 * * ?" />
+		<!-- 自动更新用户的账户信息表 -->
+		<task:scheduled ref="userTaskServiceImpl" method="updateAllUserAccount" cron="0 10 23 * * ?" />
+		<!-- 自动更新民生通道子商户是否审核 -->
+		<!-- <task:scheduled ref="userTaskServiceImpl" method="updateThroughChannel" cron="0 0 11 * * ?" /> -->
+		<!-- 自动更新用户的T1账户金额到可用金额中信息表，必须在T5之前完成 -->
+		<task:scheduled ref="userTaskServiceImpl" method="updateUserT1AccountToAvl" cron="0 15 23 * * ?" />
+		<!-- 自动更新用户的T5账户信息表 -->
+		<task:scheduled ref="userTaskServiceImpl" method="updateUserT5Account" cron="0 20 23 * * ?" />
+		<!-- 统计系统账户出入信息表后台结算出款系统代付 -->
+		<task:scheduled ref="userTaskServiceImpl" method="updateFinanceProfitAccount" cron="0 25 23 * * ?" />
+		<!-- 账户记录出入 -->
+		<task:scheduled ref="userTaskServiceImpl" method="addAccountLogProfit" cron="0 5 23 * * ?" />
+		<!-- 每分钟处理未分润订单 -->
+		<task:scheduled ref="brokerageTaskServiceImpl" method="dealShareBrokerage" cron="0 */1 * * * ?" />
+		<!-- 下载用户账户信息 -->
+		<task:scheduled ref="userTaskServiceImpl" method="downloadUserAccount" cron="0 5 1 * * ?" />
+		<!-- 下载用户分润信息 -->
+		<task:scheduled ref="userTaskServiceImpl" method="downloadUserBrokerage" cron="0 12 1 * * ?" />
+		<!-- 每分钟扫描等待收款支付的支付订单 -->
+		<task:scheduled ref="orderTaskServiceImpl" method="dealProcessOrderAfterOneHours" cron="0 */1 * * * ?" />
+		<!-- 打批代付订单 -->
+		<task:scheduled ref="orderTaskServiceImpl" method="dealBunchOfflineOrder" cron="0 20 1 * * ?" />
+		<!-- 每分钟扫描蚨米推荐订单,处理蚨米推广人升级标准 -->
+		<!-- <task:scheduled ref="fuMiTaskServiceImpl" method="updateFuMiTaskUpgrade" cron="0 */1 * * * ?" /> -->
+		<!-- 实时查询平安未完成的代付信息，每一分钟一次 -->
+		<task:scheduled ref="pinganTaskServiceImpl" method="dealSearchOrderToPingan" cron="0 */1 * * * ?" />
+		<!-- 实时查询10天内平安待人工处理的代付信息,每五分钟一次 -->
+		<!-- <task:scheduled ref="pinganTaskServiceImpl" method="dealSearchOrderToPinganLong" cron="0 */5 * * * ?" /> -->
+		<!-- 下载平安的对账单 每天9:30开始对账 -->
+		<task:scheduled ref="pinganTaskServiceImpl" method="dealDownLoadStatement" cron="0 10 8 * * ?" />
+		<!-- 下载完对账单后，开始对账 -->
+		<task:scheduled ref="pinganTaskServiceImpl" method="dealStatement" cron="0 15 8 * * ?" />
+		<!-- 下载完微信对账单 -->
+		<task:scheduled ref="statementTaskServiceImpl" method="dealWeixinStatement" cron="0 5 8 * * ?" />
+		<!-- 下载完阿里对账单 -->
+		<task:scheduled ref="statementTaskServiceImpl" method="dealAlipayStatement" cron="0 0 8 * * ?" />
+		<!-- 下载完民生对账单 -->
+		<!-- <task:scheduled ref="statementTaskServiceImpl" method="dealMinshengStatement" cron="0 0 10 * * ?" /> -->
+		<!-- 下载完平安对账单 -->
+		<task:scheduled ref="statementTaskServiceImpl" method="dealPinganPayStatement" cron="0 20 8 * * ?" />
+		<!-- 将两天前仍然处于 待处理 状态的银联在线，微信，支付宝，京东订单设置为失败 -->
+		<task:scheduled ref="statementTaskServiceImpl" method="dealProcessingZanShanFuOrderBeforeTwoDays" cron="0 25 1 * * ?" />
+		<task:scheduled ref="statementTaskServiceImpl" method="dealProcessingWeixinOrderBeforeTwoDays" cron="0 30 1 * * ?" />
+		<task:scheduled ref="statementTaskServiceImpl" method="dealProcessingZhifubaoOrderBeforeTwoDays" cron="0 35 1 * * ?" />
+		<task:scheduled ref="statementTaskServiceImpl" method="dealProcessingJingdongOrderBeforeTwoDays" cron="0 40 1 * * ?" />
+		<!-- 统计可用通道的每日流入金额并记录 -->
+		<task:scheduled ref="channelDayAmtMonitorServiceImpl" method="addCollectTodayAmtEveryDay" cron="0 1 23 * * ?" />
+	</task:scheduled-tasks>
+
+</beans>
